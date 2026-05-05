@@ -2,7 +2,7 @@
 # ==============================================================================
 # APIM - Centralized API Management System
 # Ubuntu Server Deployment Script
-# Repository: https://github.com/bijeshnyachyon/apim
+# Repository: https://github.com/bijeshnyachhyon/apim
 # ==============================================================================
 # Usage:
 #   chmod +x deploy_ubuntu.sh
@@ -166,12 +166,12 @@ else
     systemctl start ${MYSQL_SVC}
     systemctl enable ${MYSQL_SVC} || true
     
-    mysql -u root <<EOSQL
+    mysql -u root <<-EOSQL
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
 FLUSH PRIVILEGES;
 EOSQL
     
-    mysql -u root -p"${DB_PASSWORD}" <<EOSQL
+    mysql -u root -p"${DB_PASSWORD}" <<-EOSQL
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
@@ -265,56 +265,40 @@ else
         warn "URL: $REPO_URL"
     fi
     
-    # Clone with no auth prompt
-    info "Cloning from branch: $BRANCH"
-    info "Clone URL: $AUTH_REPO_URL"
-    
     # Try to get default branch from GitHub API
     DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/bijeshnyachhyon/apim" | grep -o '"default_branch": "[^"]*"' | cut -d'"' -f4 || echo "$BRANCH")
     info "GitHub reports default branch: $DEFAULT_BRANCH"
     
-    # Try clone and capture output
-    # Note: Cloning into "." requires the directory to be empty
-    info "Cloning into: $APP_DIR"
-    info "Directory contents before clone:"
-    ls -la . 2>&1 | tee -a "$LOG_FILE"
+    # Clone to temp directory first (since APP_DIR might not be empty)
+    TEMP_CLONE_DIR="/tmp/apim_clone_$$"
+    info "Cloning to temp directory: $TEMP_CLONE_DIR"
     
-    CLONE_OUTPUT=$(GIT_TERMINAL_PROMPT=0 git clone -b "$DEFAULT_BRANCH" "$AUTH_REPO_URL" . 2>&1)
-    CLONE_EXIT=$?
-    echo "$CLONE_OUTPUT" | tee -a "$LOG_FILE"
-    
-    info "Directory contents after clone:"
-    ls -la . 2>&1 | tee -a "$LOG_FILE"
-    
-    if [ $CLONE_EXIT -eq 0 ]; then
-        log "Repository cloned successfully."
-        # Verify key files exist
-        if [ ! -f "requirements.txt" ]; then
+    if GIT_TERMINAL_PROMPT=0 git clone -b "$DEFAULT_BRANCH" "$AUTH_REPO_URL" "$TEMP_CLONE_DIR" 2>&1 | tee -a "$LOG_FILE"; then
+        if [ -f "$TEMP_CLONE_DIR/requirements.txt" ]; then
+            log "Repository cloned successfully."
+            # Move files from temp directory to APP_DIR
+            info "Moving files to $APP_DIR..."
+            cp -a "$TEMP_CLONE_DIR/." "$APP_DIR/" 2>/dev/null || true
+            rm -rf "$TEMP_CLONE_DIR"
+            log "Files copied to $APP_DIR"
+        else
             error "Repository cloned but requirements.txt not found!"
-            error "Files in directory:"
-            ls -la . 2>&1 | tee -a "$LOG_FILE"
-            error "Checking if clone went into subdirectory..."
-            if [ -d "apim" ]; then
-                error "Clone created 'apim' subdirectory! Moving files..."
-                mv apim/* . 2>/dev/null || true
-                mv apim/.git . 2>/dev/null || true
-                rm -rf apim 2>/dev/null || true
-            fi
-            error "The repository might be empty or branch '$DEFAULT_BRANCH' doesn't exist."
-            error "Please ensure:"
-            error "1. Repository has files: $REPO_URL"
-            error "2. Branch '$DEFAULT_BRANCH' exists"
+            ls -la "$TEMP_CLONE_DIR" | tee -a "$LOG_FILE"
+            rm -rf "$TEMP_CLONE_DIR"
+            error "Please ensure the repository has files at: $REPO_URL"
             exit 1
         fi
-    elif [ -n "$GITHUB_TOKEN" ]; then
-        warn "Failed with token. Repository might not exist or token lacks access."
-        warn "Ensure repo exists at: $REPO_URL"
-        warn "Ensure token has 'repo' scope"
-        exit 1
     else
-        warn "Failed to clone. Try:"
-        warn "1. Make sure repo exists: $REPO_URL"
-        warn "2. Or use token: export GITHUB_TOKEN=ghp_xxxx && sudo -E ./deploy_ubuntu.sh --native"
+        rm -rf "$TEMP_CLONE_DIR" 2>/dev/null || true
+        if [ -n "$GITHUB_TOKEN" ]; then
+            warn "Failed with token. Repository might not exist or token lacks access."
+            warn "Ensure repo exists at: $REPO_URL"
+            warn "Ensure token has 'repo' scope"
+        else
+            warn "Failed to clone. Try:"
+            warn "1. Make sure repo exists: $REPO_URL"
+            warn "2. Or use token: export GITHUB_TOKEN=ghp_xxxx && sudo -E $0 --native"
+        fi
         exit 1
     fi
 fi
@@ -373,8 +357,8 @@ REDIS_DB=0
 REDIS_POOL_SIZE=50
 T24_HOST=tcserver.bank.internal
 T24_PORT=9089
-T24_USERNAME=your-t24-user
-T24_PASSWORD=your-t24-password
+T24_USERNAME=your_t24_user
+T24_PASSWORD=your_t24_password
 T24_OFS_VERSION=0
 T24_CONNECTION_MODE=http
 T24_HTTP_ENDPOINT=/BrowserWeb/servlet/BrowserServlet
