@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIM - T24 Operations</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <nav class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">APIM - T24 Operations</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/dashboard" class="text-sm text-blue-600 hover:text-blue-800">Back to Overview</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- T24 Status Card -->
+            <div class="bg-white shadow rounded-lg mb-6">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">T24 Connection Status</h3>
+                    <div id="t24Status" class="flex items-center">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <span class="ml-3 text-sm text-gray-500">Checking connection...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Enquiry Section -->
+            <div class="bg-white shadow rounded-lg mb-6">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">T24 Enquiry</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Enquiry Name</label>
+                            <input type="text" id="enquiryName" placeholder="e.g., CUSTOMER" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Parameters (JSON)</label>
+                            <input type="text" id="enquiryParams" placeholder='{"CUSTOMER.ID": "12345"}' class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button onclick="executeEnquiry()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                        Execute Enquiry
+                    </button>
+                </div>
+            </div>
+
+            <!-- Transaction Section -->
+            <div class="bg-white shadow rounded-lg mb-6">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">T24 Transaction</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Template Name</label>
+                            <input type="text" id="templateName" placeholder="e.g., FUNDS.TRANSFER" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Parameters (JSON)</label>
+                            <input type="text" id="transactionParams" placeholder='{"DEBIT.ACCT": "12345", "AMOUNT": "1000"}' class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <button onclick="executeTransaction()" class="mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                        Execute Transaction
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Results</h3>
+                    <div id="results" class="bg-gray-50 p-4 rounded-md">
+                        <p class="text-sm text-gray-500">No results yet. Execute an enquiry or transaction to see results.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function checkT24Status() {
+            try {
+                const response = await fetch('/api/v1/t24/status');
+                const data = await response.json();
+                const statusDiv = document.getElementById('t24Status');
+                if (data.status === 'healthy') {
+                    statusDiv.innerHTML = `
+                        <span class="flex h-3 w-3 mr-3">
+                            <span class="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span class="text-sm text-green-700">Connected (${data.connection_mode})</span>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <span class="flex h-3 w-3 mr-3">
+                            <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                        </span>
+                        <span class="text-sm text-red-700">Disconnected</span>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('t24Status').innerHTML = `
+                    <span class="flex h-3 w-3 mr-3">
+                        <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    <span class="text-sm text-red-700">Error checking status</span>
+                `;
+            }
+        }
+
+        async function executeEnquiry() {
+            const name = document.getElementById('enquiryName').value;
+            const params = JSON.parse(document.getElementById('enquiryParams').value || '{}');
+            try {
+                const response = await fetch('/api/v1/t24/enquiry/' + name, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({enquiry_name: name, parameters: params})
+                });
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                displayResults({error: error.message});
+            }
+        }
+
+        async function executeTransaction() {
+            const name = document.getElementById('templateName').value;
+            const params = JSON.parse(document.getElementById('transactionParams').value || '{}');
+            try {
+                const response = await fetch('/api/v1/t24/transaction', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({template_name: name, parameters: params})
+                });
+                const result = await response.json();
+                displayResults(result);
+            } catch (error) {
+                displayResults({error: error.message});
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<pre class="text-sm text-gray-800">${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        checkT24Status();
+        setInterval(checkT24Status, 30000);
+    </script>
+</body>
+</html>

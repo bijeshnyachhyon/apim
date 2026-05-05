@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIM - Audit Logs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <nav class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">APIM - Audit Logs</h1>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/dashboard" class="text-sm text-blue-600 hover:text-blue-800">Back to Overview</a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- Filters -->
+            <div class="bg-white shadow rounded-lg mb-6 p-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Action</label>
+                        <select id="filterAction" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="">All Actions</option>
+                            <option value="CREATE">Create</option>
+                            <option value="UPDATE">Update</option>
+                            <option value="DELETE">Delete</option>
+                            <option value="LOGIN">Login</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Resource</label>
+                        <select id="filterResource" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="">All Resources</option>
+                            <option value="consumer">Consumer</option>
+                            <option value="endpoint">Endpoint</option>
+                            <option value="data_source">Data Source</option>
+                            <option value="api_key">API Key</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date From</label>
+                        <input type="date" id="filterDateFrom" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Date To</label>
+                        <input type="date" id="filterDateTo" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <button onclick="loadAuditLogs()" class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Apply Filters
+                </button>
+            </div>
+
+            <!-- Audit Logs Table -->
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Admin User</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resource</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resource ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">IP Address</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditTable" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadAuditLogs() {
+            const params = new URLSearchParams();
+            const action = document.getElementById('filterAction').value;
+            const resource = document.getElementById('filterResource').value;
+            const dateFrom = document.getElementById('filterDateFrom').value;
+            const dateTo = document.getElementById('filterDateTo').value;
+
+            if (action) params.append('action', action);
+            if (resource) params.append('resource', resource);
+            if (dateFrom) params.append('date_from', dateFrom);
+            if (dateTo) params.append('date_to', dateTo);
+
+            try {
+                const response = await fetch(`/api/v1/admin/audit-logs?${params}`);
+                const data = await response.json();
+                const tbody = document.getElementById('auditTable');
+                tbody.innerHTML = data.data.map(log => `
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(log.timestamp).toLocaleString()}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${log.admin_username}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getActionColor(log.action)}">
+                                ${log.action}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.resource}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.resource_id || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${log.ip_address}</td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            <pre class="text-xs">${JSON.stringify(log.details, null, 2)}</pre>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading audit logs:', error);
+            }
+        }
+
+        function getActionColor(action) {
+            const colors = {
+                'CREATE': 'bg-green-100 text-green-800',
+                'UPDATE': 'bg-blue-100 text-blue-800',
+                'DELETE': 'bg-red-100 text-red-800',
+                'LOGIN': 'bg-purple-100 text-purple-800'
+            };
+            return colors[action] || 'bg-gray-100 text-gray-800';
+        }
+
+        loadAuditLogs();
+    </script>
+</body>
+</html>

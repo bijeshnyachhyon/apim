@@ -232,13 +232,9 @@ async def metrics_endpoint():
 # Include API routers
 # ===================
 
-from app.api.v1 import auth, query, t24, admin, metrics
+from app.api.v1 import router as v1_router
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(query.router, prefix="/api/v1", tags=["Query"])
-app.include_router(t24.router, prefix="/api/v1/t24", tags=["T24 OFS"])
-app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
-app.include_router(metrics.router, prefix="/api/v1", tags=["Monitoring"])
+app.include_router(v1_router)
 
 # ===================
 # Dashboard Routes

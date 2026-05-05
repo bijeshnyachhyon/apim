@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apim-app
+  namespace: apim-system
+  labels:
+    app: apim-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: apim-app
+  template:
+    metadata:
+      labels:
+        app: apim-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: apim-app
+        image: apim:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        - containerPort: 9090
+          name: metrics
+        env:
+        - name: APP_ENV
+          value: "production"
+        - name: MYSQL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: apim-config
+              key: mysql.host
+        - name: MYSQL_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: apim-config
+              key: mysql.port
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: apim-config
+              key: mysql.database
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: apim-secret
+              key: mysql-user
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: apim-secret
+              key: mysql-password
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: apim-config
+              key: redis.host
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: apim-secret
+              key: redis-password
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: apim-secret
+              key: jwt-secret
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: apim-secret
+              key: encryption-key
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+        volumeMounts:
+        - name: jwt-keys
+          mountPath: /opt/apim/keys
+          readOnly: true
+      volumes:
+      - name: jwt-keys
+        secret:
+          secretName: apim-jwt-keys
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: apim-app-hpa
+  namespace: apim-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: apim-app
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
