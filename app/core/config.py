@@ -1,7 +1,7 @@
 # Core Settings and Configuration
 from typing import Optional, List
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 import os
 
 class Settings(BaseSettings):
