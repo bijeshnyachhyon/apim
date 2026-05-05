@@ -1,7 +1,7 @@
 # FastAPI Main Application
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Depends, status
-from fastapi.responses import JSONResponse, RediretResponse, HTMLResponse
+from fastapi.responses import JSONResponse, RedirectResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
