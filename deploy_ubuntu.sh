@@ -30,7 +30,7 @@ else
 fi
 
 # Configuration
-REPO_URL="https://github.com/bijeshnyachyon/apim.git"
+REPO_URL="https://github.com/bijeshnyachhyon/apim.git"
 APP_DIR="/opt/apim"
 APP_ENV="development"
 DEPLOY_MODE="native"
@@ -225,9 +225,18 @@ fi
 # Step 5: Clone Application
 log "Step 5: Setting up application..."
 
+# Disable Git credential prompting (GitHub no longer supports password auth)
+export GIT_TERMINAL_PROMPT=0
+# Unset credential helpers that might cause prompts
+unset GIT_ASKPASS
+git config --global --unset credential.helper 2>/dev/null || true
+
 # Check if GITHUB_TOKEN is available for authentication
 if [ -n "$GITHUB_TOKEN" ]; then
-    AUTH_REPO_URL="https://${GITHUB_TOKEN}@${REPO_URL#https://}"
+    # Extract repo path from URL (remove https://)
+    REPO_PATH=$(echo "$REPO_URL" | sed 's|https://||')
+    AUTH_REPO_URL="https://${GITHUB_TOKEN}@${REPO_PATH}"
+    info "Using GitHub token for authentication"
 else
     AUTH_REPO_URL="$REPO_URL"
 fi
@@ -246,20 +255,67 @@ elif [ -f "$APP_DIR/requirements.txt" ]; then
     git checkout -b "$BRANCH" 2>/dev/null || true
 else
     log "Cloning repository from GitHub..."
-    if git clone -b "$BRANCH" "$AUTH_REPO_URL" . 2>/dev/null; then
-        log "Repository cloned successfully."
+    
+    # Check if repo is accessible first
+    info "Checking repository accessibility..."
+    if curl -s --head "$REPO_URL" | grep -q "200 OK\|301\|302"; then
+        info "Repository is accessible"
     else
-        warn "Failed to clone repository. Trying without authentication..."
-        if git clone -b "$BRANCH" "$REPO_URL" . 2>/dev/null; then
-            log "Repository cloned successfully."
-        else
-            error "Failed to clone repository."
+        warn "Repository might not exist or is not accessible"
+        warn "URL: $REPO_URL"
+    fi
+    
+    # Clone with no auth prompt
+    info "Cloning from branch: $BRANCH"
+    info "Clone URL: $AUTH_REPO_URL"
+    
+    # Try to get default branch from GitHub API
+    DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/bijeshnyachhyon/apim" | grep -o '"default_branch": "[^"]*"' | cut -d'"' -f4 || echo "$BRANCH")
+    info "GitHub reports default branch: $DEFAULT_BRANCH"
+    
+    # Try clone and capture output
+    # Note: Cloning into "." requires the directory to be empty
+    info "Cloning into: $APP_DIR"
+    info "Directory contents before clone:"
+    ls -la . 2>&1 | tee -a "$LOG_FILE"
+    
+    CLONE_OUTPUT=$(GIT_TERMINAL_PROMPT=0 git clone -b "$DEFAULT_BRANCH" "$AUTH_REPO_URL" . 2>&1)
+    CLONE_EXIT=$?
+    echo "$CLONE_OUTPUT" | tee -a "$LOG_FILE"
+    
+    info "Directory contents after clone:"
+    ls -la . 2>&1 | tee -a "$LOG_FILE"
+    
+    if [ $CLONE_EXIT -eq 0 ]; then
+        log "Repository cloned successfully."
+        # Verify key files exist
+        if [ ! -f "requirements.txt" ]; then
+            error "Repository cloned but requirements.txt not found!"
+            error "Files in directory:"
+            ls -la . 2>&1 | tee -a "$LOG_FILE"
+            error "Checking if clone went into subdirectory..."
+            if [ -d "apim" ]; then
+                error "Clone created 'apim' subdirectory! Moving files..."
+                mv apim/* . 2>/dev/null || true
+                mv apim/.git . 2>/dev/null || true
+                rm -rf apim 2>/dev/null || true
+            fi
+            error "The repository might be empty or branch '$DEFAULT_BRANCH' doesn't exist."
             error "Please ensure:"
-            error "1. Repository exists at: $REPO_URL"
-            error "2. You have access (use GITHUB_TOKEN if private)"
-            error "3. Or copy files manually to $APP_DIR"
+            error "1. Repository has files: $REPO_URL"
+            error "2. Branch '$DEFAULT_BRANCH' exists"
             exit 1
         fi
+    elif [ -n "$GITHUB_TOKEN" ]; then
+        warn "Failed with token. Repository might not exist or token lacks access."
+        warn "Ensure repo exists at: $REPO_URL"
+        warn "Ensure token has 'repo' scope"
+        exit 1
+    else
+        warn "Failed to clone. Try:"
+        warn "1. Make sure repo exists: $REPO_URL"
+        warn "2. Or use token: export GITHUB_TOKEN=ghp_xxxx && sudo -E ./deploy_ubuntu.sh --native"
+        exit 1
     fi
 fi
 
