@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIM - Data Sources</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .sidebar { width: 260px; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; }
+        .dark .card { background: #1f2937; }
+        .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-inactive { background: #f3f4f6; color: #374151; }
+        .status-error { background: #fee2e2; color: #991b1b; }
+        .db-msmql { color: #3B82F6; }
+        .db-oracle { color: #EF4444; }
+        .db-postgresql { color: #14B8A6; }
+        .db-mysql { color: #F97316; }
+        .db-mongodb { color: #22C55E; }
+        .db-t24 { color: #F59E0B; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900" x-data="{ sidebarOpen: true, showAddModal: false }" :class="darkMode ? 'dark' : ''" x-init="let dm = localStorage.getItem('darkMode'); if(dm === 'true') darkMode = true;">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <div class="sidebar bg-[#1E3A5F] text-white p-4">
+            <div class="flex items-center space-x-2 mb-8">
+                <span class="text-xl font-bold">🔌</span>
+                <span class="text-lg">APIM</span>
+            </div>
+            <nav>
+                <a href="/dashboard" class="flex items-center px-4 py-3 text-gray-300 hover:bg-[#0EA5E9]/20 mb-2 rounded">🏠 Overview</a>
+                <a href="/dashboard/endpoints" class="flex items-center px-4 py-3 text-gray-300 hover:bg-[#0EA5E9]/20 mb-2 rounded">🔌 Endpoints</a>
+                <a href="/dashboard/datasources" class="flex items-center px-4 py-3 bg-[#0EA5E9] rounded mb-2">🗄️ Data Sources</a>
+                <a href="/dashboard/ofs-templates" class="flex items-center px-4 py-3 text-gray-300 hover:bg-[#0EA5E9]/20 mb-2 rounded">📝 OFS Templates</a>
+                <a href="/dashboard/api-keys" class="flex items-center px-4 py-3 text-gray-300 hover:bg-[#0EA5E9]/20 mb-2 rounded">🔑 API Keys</a>
+                <a href="/dashboard/analytics" class="flex items-center px-4 py-3 text-gray-300 hover:bg-[#0EA5E9]/20 mb-2 rounded">📊 Analytics</a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Data Sources</h1>
+                <button @click="showAddModal = true" class="px-4 py-2 bg-[#0EA5E9] text-white rounded-lg hover:bg-blue-600">
+                    + Add Data Source
+                </button>
+            </header>
+
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- Data Source Cards -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <!-- PostgreSQL Card -->
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="db-postgresql font-bold text-lg">PG</span>
+                                <span class="font-semibold text-gray-900 dark:text-white">Production PostgreSQL</span>
+                            </div>
+                            <span class="status-badge status-active">Connected</span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            <p>Host: pg.prod.internal:5432</p>
+                            <p>Database: banking_db</p>
+                            <p>User: apim_user</p>
+                        </div>
+                        <div class="flex space-x-3 mt-4">
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Edit</button>
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Test</button>
+                            <button class="text-sm text-red-600 hover:underline">Delete</button>
+                        </div>
+                    </div>
+
+                    <!-- MSSQL Card -->
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="db-msmql font-bold text-lg">MS</span>
+                                <span class="font-semibold text-gray-900 dark:text-white">Production MSSQL</span>
+                            </div>
+                            <span class="status-badge status-active">Connected</span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            <p>Host: mssql.prod.internal:1433</p>
+                            <p>Database: banking_db</p>
+                            <p>User: apim_user</p>
+                        </div>
+                        <div class="flex space-x-3 mt-4">
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Edit</button>
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Test</button>
+                            <button class="text-sm text-red-600 hover:underline">Delete</button>
+                        </div>
+                    </div>
+
+                    <!-- T24 Card -->
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-2">
+                                <span class="db-t24 font-bold text-lg">T24</span>
+                                <span class="font-semibold text-gray-900 dark:text-white">T24 TCServer</span>
+                            </div>
+                            <span class="status-badge status-active">Connected</span>
+                        </div>
+                        <div class="text-sm text-gray-600 dark:text-gray-300 space-y-1">
+                            <p>Host: t24.prod.internal:9089</p>
+                            <p>Mode: HTTP</p>
+                            <p>User: T24USER</p>
+                        </div>
+                        <div class="flex space-x-3 mt-4">
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Edit</button>
+                            <button class="text-sm text-[#0EA5E9] hover:underline">Test</button>
+                            <button class="text-sm text-red-600 hover:underline">Delete</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pool Metrics Table -->
+                <div class="card">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Connection Pool Status</h3>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b dark:border-gray-700">
+                                <th class="text-left py-2">Data Source</th>
+                                <th class="text-right py-2">Type</th>
+                                <th class="text-right py-2">Active</th>
+                                <th class="text-right py-2">Idle</th>
+                                <th class="text-right py-2">Max</th>
+                                <th class="text-right py-2">Utilization</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-b dark:border-gray-700">
+                                <td class="py-2 text-gray-900 dark:text-white">Production PostgreSQL</td>
+                                <td class="py-2 text-right"><span class="db-postgresql">PostgreSQL</span></td>
+                                <td class="py-2 text-right">5</td>
+                                <td class="py-2 text-right">15</td>
+                                <td class="py-2 text-right">20</td>
+                                <td class="py-2 text-right">
+                                    <div class="w-24 bg-gray-200 rounded-full h-2 inline-block mr-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 25%"></div>
+                                    </div>
+                                    25%
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="py-2 text-gray-900 dark:text-white">T24 TCServer</td>
+                                <td class="py-2 text-right"><span class="db-t24">T24</span></td>
+                                <td class="py-2 text-right">2</td>
+                                <td class="py-2 text-right">8</td>
+                                <td class="py-2 text-right">10</td>
+                                <td class="py-2 text-right">
+                                    <div class="w-24 bg-gray-200 rounded-full h-2 inline-block mr-2">
+                                        <div class="bg-green-500 h-2 rounded-full" style="width: 20%"></div>
+                                    </div>
+                                    20%
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+
+        <!-- Add Data Source Modal -->
+        <div x-show="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Add Data Source</h2>
+                    <button @click="showAddModal = false" class="text-gray-500 hover:text-gray-700">&times;</button>
+                </div>
+                <form>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="Production DB">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">DB Type</label>
+                            <select class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                                <option value="postgresql">PostgreSQL</option>
+                                <option value="mysql">MySQL</option>
+                                <option value="mssql">MS SQL Server</option>
+                                <option value="oracle">Oracle</option>
+                                <option value="mongodb">MongoDB</option>
+                                <option value="t24_tcserver">T24 TCServer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Host</label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="db.example.com">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Port</label>
+                            <input type="number" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="5432">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Database Name</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="banking_db">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username</label>
+                            <input type="text" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="apim_user">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
+                            <input type="password" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white" placeholder="•••••••">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pool Min</label>
+                            <input type="number" value="2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pool Max</label>
+                            <input type="number" value="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white">
+                        </div>
+                    </div>
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" @click="showAddModal = false" class="px-4 py-2 border border-gray-300 rounded-lg">Cancel</button>
+                        <button type="button" @click="showAddModal = false" class="px-4 py-2 bg-[#0EA5E9] text-white rounded-lg">Save</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

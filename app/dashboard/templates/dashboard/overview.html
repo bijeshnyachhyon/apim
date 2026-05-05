@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-1440, initial-scale=1.0">
+    <title>APIM - Overview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+        .sidebar { width: 260px; }
+        .sidebar.collapsed { width: 64px; }
+        .sidebar.collapsed .nav-text { display: none; }
+        .sidebar.collapsed .logo-text { display: none; }
+        .status-badge { padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-inactive { background: #f3f4f6; color: #374151; }
+        .status-error { background: #fee2e2; color: #991b1b; }
+        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; }
+        .dark .card { background: #1f2937; }
+    </style>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900" x-data="{ sidebarOpen: true, darkMode: false }" :class="darkMode ? 'dark' : ''">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <div class="sidebar bg-[#1E3A5F] text-white transition-all duration-300" :class="sidebarOpen ? '' : 'collapsed'">
+            <div class="p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="text-xl font-bold">🔌</span>
+                    <span class="logo-text text-lg">APIM</span>
+                </div>
+                <button @click="sidebarOpen = !sidebarOpen" class="text-white hover:text-gray-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                    </svg>
+                </button>
+            </div>
+            <nav class="mt-4">
+                <a href="/dashboard" class="flex items-center px-4 py-3 text-white bg-[#0EA5E9]">
+                    <span>🏠</span>
+                    <span class="nav-text ml-3">Overview</span>
+                </a>
+                <div class="mt-2">
+                    <p class="px-4 text-xs text-gray-400 nav-text uppercase">Registry</p>
+                    <a href="/dashboard/endpoints" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>🔌</span>
+                        <span class="nav-text ml-3">Endpoints</span>
+                    </a>
+                    <a href="/dashboard/datasources" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>🗄️</span>
+                        <span class="nav-text ml-3">Data Sources</span>
+                    </a>
+                    <a href="/dashboard/ofs-templates" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>📝</span>
+                        <span class="nav-text ml-3">OFS Templates</span>
+                    </a>
+                </div>
+                <div class="mt-2">
+                    <p class="px-4 text-xs text-gray-400 nav-text uppercase">Keys</p>
+                    <a href="/dashboard/api-keys" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>🔑</span>
+                        <span class="nav-text ml-3">API Keys</span>
+                    </a>
+                    <a href="/dashboard/consumers" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>👥</span>
+                        <span class="nav-text ml-3">Consumers</span>
+                    </a>
+                </div>
+                <div class="mt-2">
+                    <p class="px-4 text-xs text-gray-400 nav-text uppercase">Analytics</p>
+                    <a href="/dashboard/analytics" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>📊</span>
+                        <span class="nav-text ml-3">Traffic</span>
+                    </a>
+                    <a href="/dashboard/t24" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                        <span>🏦</span>
+                        <span class="nav-text ml-3">T24 / TCServer</span>
+                    </a>
+                </div>
+                <a href="/dashboard/audit" class="flex items-center px-4 py-2 mt-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                    <span>📋</span>
+                    <span class="nav-text ml-3">Audit Logs</span>
+                </a>
+                <a href="/dashboard/settings" class="flex items-center px-4 py-2 text-gray-300 hover:bg-[#0EA5E9]/20">
+                    <span>⚙️</span>
+                    <span class="nav-text ml-3">Settings</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Overview</h1>
+                <div class="flex items-center space-x-4">
+                    <button @click="darkMode = !darkMode" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                        <span x-text="darkMode ? '☀️' : '🌙'"></span>
+                    </button>
+                    <div class="text-sm text-gray-600 dark:text-gray-300">
+                        Last updated: <span x-text="new Date().toLocaleTimeString()"></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Content -->
+            <main class="flex-1 overflow-y-auto p-6">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-5 gap-4 mb-6">
+                    <div class="card">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Total Requests (24h)</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">150,000</p>
+                        <p class="text-sm text-green-600 mt-1">↑ 12% vs yesterday</p>
+                    </div>
+                    <div class="card">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Success Rate %</p>
+                        <p class="text-3xl font-bold text-green-600 mt-2">99.2%</p>
+                        <p class="text-sm text-green-600 mt-1">↑ 0.3% vs yesterday</p>
+                    </div>
+                    <div class="card">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Avg Latency ms</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">85</p>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Active API Keys</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">45</p>
+                        <a href="/dashboard/api-keys" class="text-sm text-[#0EA5E9] hover:underline">View All</a>
+                    </div>
+                    <div class="card">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Active DB Connections</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white mt-2">12</p>
+                        <p class="text-sm text-gray-600 mt-1">5 connected, 7 pooled</p>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="grid grid-cols-2 gap-6 mb-6">
+                    <div class="card">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Request Volume</h3>
+                            <div class="flex space-x-2">
+                                <button class="px-3 py-1 text-sm bg-[#0EA5E9] text-white rounded">1h</button>
+                                <button class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">24h</button>
+                                <button class="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50">7d</button>
+                            </div>
+                        </div>
+                        <canvas id="requestVolumeChart" height="100"></canvas>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Requests by Database Target</h3>
+                        <canvas id="dbTargetChart" height="100"></canvas>
+                    </div>
+                </div>
+
+                <!-- Bottom Row -->
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="card">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top 10 API Consumers</h3>
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="border-b dark:border-gray-700">
+                                    <th class="text-left py-2">Consumer</th>
+                                    <th class="text-right py-2">Requests</th>
+                                    <th class="text-right py-2">Success %</th>
+                                    <th class="text-right py-2">Avg Latency</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b dark:border-gray-700">
+                                    <td class="py-2">Mobile App</td>
+                                    <td class="text-right">50,000</td>
+                                    <td class="text-right text-green-600">99.5%</td>
+                                    <td class="text-right">65ms</td>
+                                </tr>
+                                <tr class="border-b dark:border-gray-700">
+                                    <td class="py-2">Internet Banking</td>
+                                    <td class="text-right">35,000</td>
+                                    <td class="text-right text-green-600">99.1%</td>
+                                    <td class="text-right">72ms</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2">Analytics Partner</td>
+                                    <td class="text-right">15,000</td>
+                                    <td class="text-right text-green-600">98.8%</td>
+                                    <td class="text-right">95ms</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Alert Panel</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                                <span class="text-red-600 mr-3">⚠️</span>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-red-800 dark:text-red-200">T24 connection timeout</p>
+                                    <p class="text-xs text-red-600 dark:text-red-400">2 minutes ago</p>
+                                </div>
+                                <button class="text-sm text-[#0EA5E9]">Details</button>
+                            </div>
+                            <div class="flex items-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                                <span class="text-amber-600 mr-3">⚠️</span>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-amber-800 dark:text-amber-200">Rate limit 80% threshold reached</p>
+                                    <p class="text-xs text-amber-600 dark:text-amber-400">Mobile App API key</p>
+                                </div>
+                                <button class="text-sm text-[#0EA5E9]">Details</button>
+                            </div>
+                            <div class="flex items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                                <span class="text-green-600 mr-3">✓</span>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-green-800 dark:text-green-200">All systems operational</p>
+                                    <p class="text-xs text-green-600 dark:text-green-400">Updated just now</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Request Volume Chart
+        const reqCtx = document.getElementById('requestVolumeChart').getContext('2d');
+        new Chart(reqCtx, {
+            type: 'line',
+            data: {
+                labels: ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00'],
+                datasets: [
+                    {
+                        label: 'Success (2xx)',
+                        data: [1200, 1100, 1050, 1000, 1150, 1300, 1250],
+                        borderColor: '#10B981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true
+                    },
+                    {
+                        label: 'Client Error (4xx)',
+                        data: [15, 12, 10, 8, 14, 18, 16],
+                        borderColor: '#F59E0B',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        fill: true
+                    },
+                    {
+                        label: 'Server Error (5xx)',
+                        data: [5, 3, 2, 4, 6, 5, 4],
+                        borderColor: '#EF4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+
+        // DB Target Chart
+        const dbCtx = document.getElementById('dbTargetChart').getContext('2d');
+        new Chart(dbCtx, {
+            type: 'bar',
+            data: {
+                labels: ['MSSQL', 'Oracle', 'PostgreSQL', 'MySQL', 'MongoDB', 'T24'],
+                datasets: [{
+                    label: 'Requests',
+                    data: [35000, 28000, 42000, 25000, 15000, 30000],
+                    backgroundColor: [
+                        '#3B82F6', '#EF4444', '#14B8A6', '#F97316', '#22C55E', '#F59E0B'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
