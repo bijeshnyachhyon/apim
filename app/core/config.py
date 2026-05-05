@@ -1,11 +1,14 @@
 # Core Settings and Configuration
 from typing import Optional, List
-from pydantic_settings import BaseSettings, SettingsConfigConf
-from pydantic import Field, validator
+from pydantic_settings import BaseSettings
+from pydantic import Field
 import os
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        extra = "ignore"
 
     # Application
     APP_ENV: str = "development"
@@ -80,7 +83,8 @@ class Settings(BaseSettings):
     DASHBOARD_PATH: str = "/dashboard"
     DASHBOARD_SECRET_KEY: str = ""
 
-    @validator("CORS_ORIGINS", pre=True)
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
             import json
