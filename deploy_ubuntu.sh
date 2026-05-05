@@ -310,7 +310,12 @@ if [ "$DEPLOY_MODE" = "native" ]; then
         python3 -m venv venv
     fi
     source venv/bin/activate
-    pip install -r requirements.txt
+    pip install --upgrade pip
+    pip install -r requirements.txt || {
+        warn "Failed to install all requirements. Trying with --no-deps for problematic packages..."
+        pip install --no-deps -r requirements.txt 2>/dev/null || true
+        warn "Some packages may need manual installation"
+    }
 fi
 
 log "Application setup completed."
