@@ -122,9 +122,10 @@ class MetricsService:
         self.db.add(log_entry)
         await self.db.flush()
 
-    def get_prometheus_metrics(self) -> Response:
-        """Return Prometheus metrics in text format."""
-        return Response(
-            content=generate_latest(),
-            media_type=CONTENT_TYPE_LATEST
-        )
+# Standalone function for Prometheus metrics endpoint
+def get_prometheus_metrics() -> Response:
+    """Return Prometheus metrics in text format."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
