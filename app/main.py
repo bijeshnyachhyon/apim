@@ -240,10 +240,8 @@ app.include_router(v1_router)
 # Dashboard Routes
 # ===================
 
-@app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
-async def dashboard_overview(request: Request):
-    """Main dashboard page."""
-    return templates.TemplateResponse("dashboard/overview.html", {"request": request, "active_page": "overview"})
+from app.dashboard.routes import router as dashboard_router
+app.include_router(dashboard_router)
 
 # ===================
 # Error Handlers
