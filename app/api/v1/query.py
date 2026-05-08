@@ -179,6 +179,7 @@ async def _execute_query(endpoint_slug: str, request: Request, db):
                 ds["db_type"], ds["id"], 200, latency_ms, None, client_ip,
                 request.headers.get("User-Agent")
             )
+            await db.commit()
 
             return {
                 "success": True,

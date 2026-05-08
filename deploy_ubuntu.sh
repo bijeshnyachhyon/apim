@@ -42,7 +42,8 @@ DB_USER="apim_user"
 DB_PASSWORD=$(openssl rand -base64 24 | tr -d "=+/" | cut -c1-20)
 REDIS_PASSWORD=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
 JWT_SECRET=$(openssl rand -base64 32 | tr -d "\n")
-FERNET_KEY=$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" 2>/dev/null || echo "changeme$(openssl rand -base64 24)")
+# Fernet key must be 32 bytes base64 encoded
+FERNET_KEY=$(openssl rand -base64 32 | tr -d "\n")
 
 LOG_FILE="/var/log/apim_deploy.log"
 
@@ -152,32 +153,30 @@ log "Step 2: Installing MySQL..."
 if command -v mysql >/dev/null 2>&1; then
     info "MySQL already installed"
 else
+    export DEBIAN_FRONTEND=noninteractive
     apt-get install -y mysql-server mysql-client
     
-    # Handle MySQL service name variations
-    if systemctl list-unit-files 2>/dev/null | grep -q "^mysql.service"; then
-        MYSQL_SVC="mysql"
-    elif systemctl list-unit-files 2>/dev/null | grep -q "^mysqld.service"; then
-        MYSQL_SVC="mysqld"
-    else
-        MYSQL_SVC="mysql"
-    fi
+    systemctl start mysql
+    systemctl enable mysql || true
     
-    systemctl start ${MYSQL_SVC}
-    systemctl enable ${MYSQL_SVC} || true
-    
-    mysql -u root <<-EOSQL
+    # Try to secure MySQL and set root password if not set
+    # On Ubuntu, root usually uses auth_socket, so we use sudo to set a password for external access
+    info "Setting MySQL root password..."
+    sudo mysql <<EOSQL
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '${DB_PASSWORD}';
 FLUSH PRIVILEGES;
 EOSQL
-    
-    mysql -u root -p"${DB_PASSWORD}" <<-EOSQL
+fi
+
+# Create database and user
+info "Configuring APIM database..."
+mysql -u root -p"${DB_PASSWORD}" <<EOSQL 2>/dev/null || mysql -u root <<EOSQL
 CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
+ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 FLUSH PRIVILEGES;
 EOSQL
-fi
 log "MySQL setup completed."
 
 # Step 3: Redis
@@ -186,23 +185,23 @@ if command -v redis-server >/dev/null 2>&1; then
     info "Redis already installed"
 else
     apt-get install -y redis-server
-    sed -i "s/^# requirepass .*/requirepass ${REDIS_PASSWORD}/" /etc/redis/redis.conf || true
-    sed -i "s/^appendonly .*/appendonly yes/" /etc/redis/redis.conf || true
-    
-    # Handle redis service - try multiple approaches
-    systemctl daemon-reload 2>/dev/null || true
-    
-    # Try to find the correct service name
-    if systemctl list-unit-files 2>/dev/null | grep -q "^redis-server.service"; then
-        REDIS_SVC="redis-server"
-    elif systemctl list-unit-files 2>/dev/null | grep -q "^redis.service"; then
-        REDIS_SVC="redis"
-    else
-        REDIS_SVC="redis-server"
+    # Safer configuration update
+    if [ -f /etc/redis/redis.conf ]; then
+        grep -q "^requirepass" /etc/redis/redis.conf && sed -i "s/^requirepass .*/requirepass ${REDIS_PASSWORD}/" /etc/redis/redis.conf || echo "requirepass ${REDIS_PASSWORD}" >> /etc/redis/redis.conf
+        grep -q "^appendonly" /etc/redis/redis.conf && sed -i "s/^appendonly .*/appendonly yes/" /etc/redis/redis.conf || echo "appendonly yes" >> /etc/redis/redis.conf
     fi
     
-    systemctl start ${REDIS_SVC} || true
-    systemctl enable ${REDIS_SVC} 2>/dev/null || systemctl enable ${REDIS_SVC}.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+    
+    # Try common service names
+    for svc in redis-server redis; do
+        if systemctl list-unit-files | grep -q "^${svc}.service"; then
+            systemctl enable $svc
+            systemctl restart $svc
+            info "Started Redis service: $svc"
+            break
+        fi
+    done
 fi
 log "Redis setup completed."
 
@@ -225,80 +224,38 @@ fi
 # Step 5: Clone Application
 log "Step 5: Setting up application..."
 
-# Disable Git credential prompting (GitHub no longer supports password auth)
+# Disable Git credential prompting
 export GIT_TERMINAL_PROMPT=0
-# Unset credential helpers that might cause prompts
 unset GIT_ASKPASS
 git config --global --unset credential.helper 2>/dev/null || true
 
-# Check if GITHUB_TOKEN is available for authentication
 if [ -n "$GITHUB_TOKEN" ]; then
-    # Extract repo path from URL (remove https://)
     REPO_PATH=$(echo "$REPO_URL" | sed 's|https://||')
     AUTH_REPO_URL="https://${GITHUB_TOKEN}@${REPO_PATH}"
-    info "Using GitHub token for authentication"
 else
     AUTH_REPO_URL="$REPO_URL"
 fi
 
-mkdir -p "$APP_DIR"
-cd "$APP_DIR"
-
 if [ -d "$APP_DIR/.git" ]; then
-    log "Repository exists. Pulling latest changes..."
-    git fetch origin || warn "Failed to fetch from remote"
-    git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH" 2>/dev/null || true
-    git pull origin "$BRANCH" 2>/dev/null || warn "Failed to pull from remote"
+    log "Repository exists at $APP_DIR. Updating..."
+    cd "$APP_DIR"
+    git fetch origin
+    git checkout "$BRANCH" || git checkout -b "$BRANCH" "origin/$BRANCH" || true
+    git pull origin "$BRANCH" || true
 elif [ -f "$APP_DIR/requirements.txt" ]; then
-    log "Application files already present (local deployment). Initializing git..."
-    git init
-    git checkout -b "$BRANCH" 2>/dev/null || true
+    log "Application files already present in $APP_DIR."
 else
-    log "Cloning repository from GitHub..."
-    
-    # Check if repo is accessible first
-    info "Checking repository accessibility..."
-    if curl -s --head "$REPO_URL" | grep -q "200 OK\|301\|302"; then
-        info "Repository is accessible"
-    else
-        warn "Repository might not exist or is not accessible"
-        warn "URL: $REPO_URL"
-    fi
-    
-    # Try to get default branch from GitHub API
-    DEFAULT_BRANCH=$(curl -s "https://api.github.com/repos/bijeshnyachhyon/apim" | grep -o '"default_branch": "[^"]*"' | cut -d'"' -f4 || echo "$BRANCH")
-    info "GitHub reports default branch: $DEFAULT_BRANCH"
-    
-    # Clone to temp directory first (since APP_DIR might not be empty)
+    log "Cloning repository..."
     TEMP_CLONE_DIR="/tmp/apim_clone_$$"
-    info "Cloning to temp directory: $TEMP_CLONE_DIR"
     
-    if GIT_TERMINAL_PROMPT=0 git clone -b "$DEFAULT_BRANCH" "$AUTH_REPO_URL" "$TEMP_CLONE_DIR" 2>&1 | tee -a "$LOG_FILE"; then
-        if [ -f "$TEMP_CLONE_DIR/requirements.txt" ]; then
-            log "Repository cloned successfully."
-            # Move files from temp directory to APP_DIR
-            info "Moving files to $APP_DIR..."
-            cp -a "$TEMP_CLONE_DIR/." "$APP_DIR/" 2>/dev/null || true
-            rm -rf "$TEMP_CLONE_DIR"
-            log "Files copied to $APP_DIR"
-        else
-            error "Repository cloned but requirements.txt not found!"
-            ls -la "$TEMP_CLONE_DIR" | tee -a "$LOG_FILE"
-            rm -rf "$TEMP_CLONE_DIR"
-            error "Please ensure the repository has files at: $REPO_URL"
-            exit 1
-        fi
+    if git clone "$AUTH_REPO_URL" "$TEMP_CLONE_DIR"; then
+        mkdir -p "$APP_DIR"
+        cp -a "$TEMP_CLONE_DIR/." "$APP_DIR/"
+        rm -rf "$TEMP_CLONE_DIR"
+        cd "$APP_DIR"
+        git checkout "$BRANCH" 2>/dev/null || true
     else
-        rm -rf "$TEMP_CLONE_DIR" 2>/dev/null || true
-        if [ -n "$GITHUB_TOKEN" ]; then
-            warn "Failed with token. Repository might not exist or token lacks access."
-            warn "Ensure repo exists at: $REPO_URL"
-            warn "Ensure token has 'repo' scope"
-        else
-            warn "Failed to clone. Try:"
-            warn "1. Make sure repo exists: $REPO_URL"
-            warn "2. Or use token: export GITHUB_TOKEN=ghp_xxxx && sudo -E $0 --native"
-        fi
+        error "Failed to clone repository. Check URL and connectivity."
         exit 1
     fi
 fi
@@ -392,10 +349,11 @@ log "Step 7: Running database migrations..."
 cd "$APP_DIR"
 if [ "$DEPLOY_MODE" = "native" ]; then
     source venv/bin/activate
-    python3 -m alembic -c migrations/alembic.ini upgrade head 2>/dev/null || true
+    # Use alembic.ini from root
+    export PYTHONPATH=$APP_DIR
+    alembic upgrade head || { error "Database migration failed!"; exit 1; }
 else
-    docker compose -f docker-compose.yml exec -T apim-app alembic upgrade head 2>/dev/null || \
-    docker compose -f docker-compose.dev.yml exec -T apim-app alembic upgrade head 2>/dev/null || true
+    docker compose exec -T apim-app alembic upgrade head || { error "Docker migration failed!"; exit 1; }
 fi
 log "Migrations completed."
 
@@ -403,9 +361,10 @@ log "Migrations completed."
 log "Step 8: Seeding database..."
 if [ "$DEPLOY_MODE" = "native" ]; then
     source venv/bin/activate
-    python3 -m app.scripts.seed_db 2>/dev/null || true
+    export PYTHONPATH=$APP_DIR
+    python3 -m app.scripts.seed_db || warn "Database seeding failed"
 else
-    docker compose exec -T apim-app python3 -m app.scripts.seed_db 2>/dev/null || true
+    docker compose exec -T apim-app python3 -m app.scripts.seed_db || true
 fi
 log "Database seeded."
 
