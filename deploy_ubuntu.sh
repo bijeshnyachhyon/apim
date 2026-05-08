@@ -170,13 +170,33 @@ fi
 
 # Create database and user
 info "Configuring APIM database..."
-mysql -u root -p"${DB_PASSWORD}" <<EOSQL 2>/dev/null || mysql -u root <<EOSQL
-CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+MYSQL_SQL="CREATE DATABASE IF NOT EXISTS ${DB_NAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost';
 ALTER USER '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
-FLUSH PRIVILEGES;
-EOSQL
+FLUSH PRIVILEGES;"
+
+# Try multiple ways to execute the SQL as root (Ubuntu/Debian specific fallbacks)
+if [ -f /etc/mysql/debian.cnf ]; then
+    if echo "$MYSQL_SQL" | mysql --defaults-file=/etc/mysql/debian.cnf 2>/dev/null; then
+        log "MySQL configured using debian.cnf credentials."
+        CONFIGURED=true
+    fi
+fi
+
+if [ "$CONFIGURED" != "true" ]; then
+    if echo "$MYSQL_SQL" | mysql -u root -p"${DB_PASSWORD}" 2>/dev/null; then
+        log "MySQL configured using generated password."
+    elif echo "$MYSQL_SQL" | sudo mysql 2>/dev/null; then
+        log "MySQL configured using sudo access."
+    elif echo "$MYSQL_SQL" | mysql -u root 2>/dev/null; then
+        log "MySQL configured using passwordless root."
+    else
+        error "Could not configure MySQL database. Access denied for root user."
+        warn "If you have a custom MySQL root password, please set it manually in .env or provide it."
+        exit 1
+    fi
+fi
 log "MySQL setup completed."
 
 # Step 3: Redis

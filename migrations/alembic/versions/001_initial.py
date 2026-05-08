@@ -100,6 +100,28 @@ def upgrade():
         sa.Index('idx_api_keys_expires', 'expires_at'),
     )
 
+    # ofs_templates table
+    op.create_table(
+        'ofs_templates',
+        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column('uuid', sa.CHAR(36), nullable=False, unique=True, index=True),
+        sa.Column('name', sa.String(255), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('ofs_type', sa.Enum('enquiry', 'transaction', name='ofs_type'), nullable=False, index=True),
+        sa.Column('application_name', sa.String(100), nullable=False, index=True),
+        sa.Column('ofs_message_template', sa.Text(), nullable=False),
+        sa.Column('variable_definitions', sa.JSON(), nullable=False),
+        sa.Column('t24_version', sa.String(20), nullable=False, default='0'),
+        sa.Column('status', sa.Enum('active', 'inactive', name='ofs_status'), nullable=False, default='active'),
+        sa.Column('created_at', mysql.DATETIME(fsp=6), nullable=False, server_default=sa.func.now()),
+        sa.Column('updated_at', mysql.DATETIME(fsp=6), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now()),
+        sa.Index('idx_ofs_templates_name', 'name'),
+        sa.Index('idx_ofs_templates_type', 'ofs_type'),
+        sa.Index('idx_ofs_templates_application', 'application_name'),
+        sa.Index('idx_ofs_templates_status', 'status'),
+        sa.Index('idx_ofs_templates_uuid', 'uuid'),
+    )
+
     # api_endpoints table
     op.create_table(
         'api_endpoints',
@@ -128,30 +150,7 @@ def upgrade():
         sa.Index('idx_endpoints_uuid', 'uuid'),
     )
 
-    # ofs_templates table
-    op.create_table(
-        'ofs_templates',
-        sa.Column('id', sa.Integer(), primary_key=True, autoincrement=True),
-        sa.Column('uuid', sa.CHAR(36), nullable=False, unique=True, index=True),
-        sa.Column('name', sa.String(255), nullable=False),
-        sa.Column('description', sa.Text(), nullable=True),
-        sa.Column('ofs_type', sa.Enum('enquiry', 'transaction', name='ofs_type'), nullable=False, index=True),
-        sa.Column('application_name', sa.String(100), nullable=False, index=True),
-        sa.Column('ofs_message_template', sa.Text(), nullable=False),
-        sa.Column('variable_definitions', sa.JSON(), nullable=False),
-        sa.Column('t24_version', sa.String(20), nullable=False, default='0'),
-        sa.Column('status', sa.Enum('active', 'inactive', name='ofs_status'), nullable=False, default='active'),
-        sa.Column('created_at', mysql.DATETIME(fsp=6), nullable=False, server_default=sa.func.now()),
-        sa.Column('updated_at', mysql.DATETIME(fsp=6), nullable=False, server_default=sa.func.now(), onupdate=sa.func.now()),
-        sa.Index('idx_ofs_templates_name', 'name'),
-        sa.Index('idx_ofs_templates_type', 'ofs_type'),
-        sa.Index('idx_ofs_templates_application', 'application_name'),
-        sa.Index('idx_ofs_templates_status', 'status'),
-        sa.Index('idx_ofs_templates_uuid', 'uuid'),
-    )
 
-    # Add foreign key after ofs_templates is created
-    op.create_foreign_key('fk_endpoints_ofs_template', 'api_endpoints', 'ofs_templates', ['ofs_template_id'], ['id'], ondelete='SET NULL')
 
     # request_logs table (partitioned)
     op.create_table(
